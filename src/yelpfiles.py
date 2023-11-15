@@ -2,7 +2,7 @@ import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
-sns.set_context('talk')
+sns.set_context('notebook')
 import circlify
 from matplotlib.ticker import PercentFormatter
 from scipy.stats import f_oneway
@@ -78,10 +78,14 @@ def plot_timeline(data, period='M', spanned=8):
 
 
 def stars_experiment(cols, test_col='aiContent', data=df):
+    """
+    analyzes aiContent against the 'stars' category
+    runs the smf OLS and plots a visualization
+    """
     data = data.copy()
     for col in cols:
         tmp = data[[col, test_col]].copy()
-
+        # scaling down the numerical value 
         tmp[col] = tmp[col]/tmp[col].max()
         tmp[col] = tmp[col].astype(float)
         model = smf.logit(f'{col} ~ {test_col}', tmp).fit()
@@ -90,7 +94,7 @@ def stars_experiment(cols, test_col='aiContent', data=df):
             ax = sns.barplot(data=data, x=col, y=test_col, hue=col,
                              legend=False,
                              palette='coolwarm', errorbar=None)
-            ax.set_title("""Originality.ai Yelp Reviews Study \nAI Content vs Stars (Rating) of Reviews""")
+            ax.set_title("""Originality.ai Yelp Reviews Study \nNumerical Feature (Stars) vs AI Content""")
         else:
             pass
 
@@ -113,34 +117,46 @@ def stars_experiment(cols, test_col='aiContent', data=df):
 
 
 def stats_test_numerical(num_cols, test_col='aiContent', data=df):
+    """
+    analysis of the aiContent (default) against numerical features
+    also plots visualization of results
+    """
     data = data.copy()
+    # log transformation of the numerical values for scaling
+    for col in num_cols:
+        data[col] = np.log1p(df[col])
     num_subplots = len(num_cols)
     fig, axes = plt.subplots(1, num_subplots, figsize=(5*num_subplots, 4))
     for idx, col in enumerate(num_cols):
         tmp = data[[col, test_col]].copy()
         tmp = tmp.dropna()
+        # scaling down the numerical features (post log transformation)
         tmp[col] = tmp[col]/tmp[col].max()
-        model = smf.logit(f'{col} ~ {test_col}', tmp).fit()
-#         display(tmp)
-#         if test_col=='aiContent':
-#             tmp['aiContent'].replace({True:'ai', False:'original'}, inplace=True)
-#         display(tmp)
+        model = smf.logit(f'{col} ~ {test_col}', tmp).fit(disp=0)
+        
+        # renaming the values for clarity
+        if test_col=='aiContent':
+            tmp['aiContent'].replace({True:'ai', False:'original'}, inplace=True)
+
         sns.barplot(data=tmp, y=col, x=test_col,
                     hue=test_col, ax=axes[idx])
-        axes[idx].get_legend().remove()
 
         print(
             f"Statistical testing indicate that {col} and aiContent are", end=' ')
         print("dependent" if model.pvalues['aiContent[T.True]'] <= 0.05 else
               "independent", end=' ')
         print("features.")
-    
-    fig.title("""Originality.ai Yelp Reviews Study \nReview Properties vs AI Content""")
+    plt.suptitle("""Originality.ai Yelp Reviews Study \nNumerical Features vs AI Content""")
     plt.tight_layout()
+
     plt.show()
 
 
 def stats_test_categorical(data, cat_cols, test_col='aiContent'):
+    """
+    analysis of the aiContent (default) against categorical features
+    also plots visualization of results
+    """
     data = data.copy()
     num_subplots = len(cat_cols)
     fig, axes = plt.subplots(1, num_subplots, figsize=(5*num_subplots, 4))
@@ -155,10 +171,14 @@ def stats_test_categorical(data, cat_cols, test_col='aiContent'):
         print(f'\n{col} - p-value is {p:.2f}')
         print(f'aiContent and {col} are probably',
               'independent.' if p > 0.05 else 'dependent.')
+    plt.suptitle("""Originality.ai Yelp Reviews Study \nCategorical Features vs AI Content""")
     plt.show()
 
 
 def get_monthly_average_and_average(key, period, data):
+    """
+    helper function for plot_bars visualization
+    """
     ts = data.loc[period[1]:period[0]]
     time_diff = period[0] - period[1]
     x = period[1] + (time_diff / 2)
@@ -168,6 +188,9 @@ def get_monthly_average_and_average(key, period, data):
 
 
 def plot_bars(data):
+    """
+    visualize the average aiContent in a period using transparent bars 
+    """
     data = data.sort_values('date')[['date', 'aiContent']].set_index('date')
 
     launch_dates = {k: pd.to_datetime(v[0])
